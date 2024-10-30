@@ -1,20 +1,44 @@
 import React, { useState } from "react";
 import ReactGoogleAutocomplete from "react-google-autocomplete";
 import { Input } from "../ui/input";
-import { AI_PROMPT, budgetOptions, companionOptions } from "../../constants/option";
+import {
+  AI_PROMPT,
+  budgetOptions,
+  companionOptions,
+} from "../../constants/option";
 import { Button } from "../ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { chatSession } from "@/service/AiModal";
+import { FcGoogle } from "react-icons/fc";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { useGoogleLogin } from "@react-oauth/google";
+import axios from "axios";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { doc, setDoc } from "firebase/firestore"; 
+import { db } from "@/service/firebaseConfig";
 
 const CreateTrip = () => {
   const [place, setPlace] = useState();
   const [days, setDays] = useState("");
   const [budget, setBudget] = useState("");
   const [companion, setCompanion] = useState("");
+  const [openDialog, setOpenDialog] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleGenerateTrip = async() => {
-    if ((!days || days <= 0 || days > 10) || !place || !budget || !companion) {
+  const handleGenerateTrip = async () => {
+    const user = localStorage.getItem("user");
+    if (!user) {
+      setOpenDialog(true);
+      return;
+    }
+    if (!days || days <= 0 || days > 10 || !place || !budget || !companion) {
       toast({
         variant: "destructive",
         title: "Uh oh! Something went wrong.",
@@ -22,15 +46,63 @@ const CreateTrip = () => {
       });
       return;
     }
-    const Final_prompt = AI_PROMPT.replace('{location}', place?.formatted_address)
-    .replace('{totalDays}', days)
-    .replace('{traveler}', companion)
-    .replace('{budget}', budget);
+    setLoading(true);
+    const Final_prompt = AI_PROMPT.replace(
+      "{location}",
+      place?.formatted_address
+    )
+      .replace("{totalDays}", days)
+      .replace("{traveler}", companion)
+      .replace("{budget}", budget);
 
     const result = await chatSession.sendMessage(Final_prompt);
-    console.log(result?.response?.text());
+    setLoading(false);
+    SaveAiTrip(result?.response?.text());
   };
-  
+
+  const SaveAiTrip = async (TripData) => {
+    setLoading(true);
+    const user = JSON.parse(localStorage.getItem("user"));
+    const docId = Date.now().toString();
+
+    await setDoc(doc(db, "AITrips", docId), {
+      userSelection: {
+        place: place?.formatted_address,
+        days: days,
+        budget: budget,
+        companion: companion,
+    },
+      tripData: JSON.parse(TripData),
+      userEmail: user?.email,
+      id: docId,
+    });
+    setLoading(false);
+  };
+
+  const login = useGoogleLogin({
+    onSuccess: (tokenInfo) => GetUserProfile(tokenInfo),
+    onError: (error) => console.log(error),
+  });
+
+  const GetUserProfile = async (tokenInfo) => {
+    try {
+      const response = await axios.get(
+        "https://www.googleapis.com/oauth2/v1/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${tokenInfo?.access_token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      localStorage.setItem("user", JSON.stringify(response.data));
+      setOpenDialog(false);
+      handleGenerateTrip();
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100 flex flex-col items-center p-10">
@@ -113,11 +185,39 @@ const CreateTrip = () => {
       </div>
 
       <Button
+        disabled={loading}
         onClick={handleGenerateTrip}
         className="mt-12 px-6 py-3 bg-[#4f46e5] hover:bg-[#3b3a99] text-white text-lg font-medium rounded-lg transition duration-300"
       >
-        Generate Trip
+        {loading ? (
+          <AiOutlineLoading3Quarters className="animate-spin" />
+        ) : (
+          "Generate Trip"
+        )}
       </Button>
+
+      <Dialog open={openDialog}>
+        <DialogContent className="p-8 max-w-sm bg-white rounded-lg shadow-lg">
+          <DialogHeader>
+            <DialogDescription className="flex flex-col items-center text-center">
+              <img src="/logo.svg" alt="App Logo" className="w-20 h-20 mb-6" />
+              <h2 className="font-bold text-2xl text-gray-800 mb-2">
+                Sign In With Google
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Sign in to the app with Google authentication.
+              </p>
+              <Button
+                onClick={login}
+                className="w-full mt-4 py-3 flex gap-3 items-center justify-center bg-blue-600 text-white font-medium rounded-md shadow hover:bg-blue-700 transition"
+              >
+                <FcGoogle className="text-xl" />
+                Sign In With Google
+              </Button>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
