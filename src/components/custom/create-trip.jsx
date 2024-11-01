@@ -20,8 +20,9 @@ import {
 import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
-import { doc, setDoc } from "firebase/firestore"; 
+import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/service/firebaseConfig";
+import { useNavigate } from "react-router-dom";
 
 const CreateTrip = () => {
   const [place, setPlace] = useState();
@@ -31,6 +32,7 @@ const CreateTrip = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleGenerateTrip = async () => {
     const user = localStorage.getItem("user");
@@ -71,12 +73,13 @@ const CreateTrip = () => {
         days: days,
         budget: budget,
         companion: companion,
-    },
+      },
       tripData: JSON.parse(TripData),
       userEmail: user?.email,
       id: docId,
     });
     setLoading(false);
+    navigate("/view-trip/" + docId);
   };
 
   const login = useGoogleLogin({
@@ -98,14 +101,19 @@ const CreateTrip = () => {
 
       localStorage.setItem("user", JSON.stringify(response.data));
       setOpenDialog(false);
+      window.dispatchEvent(new Event("userLogin"));
       handleGenerateTrip();
     } catch (error) {
       console.error("Error fetching user profile:", error);
     }
   };
 
+  const handleCloseDialog = () => {
+    setOpenDialog(false); // Close the dialog
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100 flex flex-col items-center p-10">
+    <div className="min-h-screen flex flex-col items-center p-10">
       <h2 className="font-bold text-3xl text-center">
         Tell Us Your Travel Preferences
       </h2>
@@ -187,16 +195,19 @@ const CreateTrip = () => {
       <Button
         disabled={loading}
         onClick={handleGenerateTrip}
-        className="mt-12 px-6 py-3 bg-[#4f46e5] hover:bg-[#3b3a99] text-white text-lg font-medium rounded-lg transition duration-300"
+        className="mt-12 w-full max-w-[200px] px-6 py-3 bg-[#4f46e5] hover:bg-[#3b3a99] text-white text-lg font-medium rounded-lg transition duration-300 flex items-center justify-center"
       >
         {loading ? (
-          <AiOutlineLoading3Quarters className="animate-spin" />
+          <>
+            <AiOutlineLoading3Quarters className="animate-spin mr-2" />
+            <span>Loading...</span>
+          </>
         ) : (
           "Generate Trip"
         )}
       </Button>
 
-      <Dialog open={openDialog}>
+      <Dialog open={openDialog} onOpenChange={handleCloseDialog}>
         <DialogContent className="p-8 max-w-sm bg-white rounded-lg shadow-lg">
           <DialogHeader>
             <DialogDescription className="flex flex-col items-center text-center">

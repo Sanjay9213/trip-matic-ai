@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 const Home = () => {
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center px-20 py-12 gap-10 bg-gradient-to-b from-blue-50 to-indigo-100 rounded-lg shadow-md">
+    <div className="min-h-screen flex flex-col justify-center items-center px-20 py-12 gap-10 rounded-lg shadow-md">
     <h1 className="text-4xl font-extrabold text-gray-800 uppercase tracking-wide transform transition duration-500 hover:scale-105 hover:text-[#ff6347]">
   <span className="text-[#4f46e5]">TripMatic AI</span> 
 </h1>
